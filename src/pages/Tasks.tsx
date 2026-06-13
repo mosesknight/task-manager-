@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/db/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,7 @@ const priorityOrder: Record<TaskPriority, number> = { High: 0, Medium: 1, Low: 2
 
 type SortField = 'created_at' | 'due_date' | 'priority' | 'title';
 type SortDir = 'asc' | 'desc';
+type StatusFilter = 'all' | 'completed' | 'pending' | 'overdue';
 
 function todayKey(): string {
   const d = new Date();
@@ -65,12 +67,13 @@ function isOverdue(dueDate: string | null, completed: boolean): boolean {
 
 export default function Tasks() {
   const { user } = useAuth();
+  const location = useLocation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<TaskCategory | 'all'>('all');
   const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'completed' | 'pending'>('all');
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
   const [filterTag, setFilterTag] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -102,6 +105,14 @@ export default function Tasks() {
     setLoading(false);
   };
 
+  // Apply filter passed from Dashboard on first mount
+  useEffect(() => {
+    const incoming = (location.state as { filterStatus?: string } | null)?.filterStatus;
+    if (incoming && ['all', 'completed', 'pending', 'overdue'].includes(incoming)) {
+      setFilterStatus(incoming as StatusFilter);
+    }
+  }, []);
+
   useEffect(() => { fetchTasks(); }, [user]);
 
   // Collect all unique tags across tasks for autocomplete
@@ -122,7 +133,9 @@ export default function Tasks() {
       const matchesPriority = filterPriority === 'all' || t.priority === filterPriority;
       const matchesStatus =
         filterStatus === 'all' ||
-        (filterStatus === 'completed' ? t.completed : !t.completed);
+        (filterStatus === 'completed' ? t.completed : 
+        filterStatus === 'pending' ? !t.completed :
+        filterStatus === 'overdue' ? (!t.completed && !!t.due_date && t.due_date.slice(0, 10) < todayKey()) : true);
       const matchesTag =
         filterTag === 'all' || (t.tags || []).includes(filterTag);
       return matchesSearch && matchesCategory && matchesPriority && matchesStatus && matchesTag;
@@ -147,9 +160,9 @@ export default function Tasks() {
     return result;
   }, [tasks, searchQuery, filterCategory, filterPriority, filterStatus, filterTag, sortField, sortDir]);
 
-  const activeFiltersCount = [filterCategory, filterPriority, filterStatus, filterTag].filter(
+  const activeFiltersCount = [filterCategory, filterPriority, filterTag].filter(
     (f) => f !== 'all'
-  ).length + (searchQuery ? 1 : 0);
+  ).length + (filterStatus !== 'all' ? 1 : 0) + (searchQuery ? 1 : 0);
 
   const clearFilters = () => {
     setFilterCategory('all');
@@ -288,7 +301,7 @@ export default function Tasks() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <FilterSelect label="Category" value={filterCategory} options={categories} onChange={(v) => setFilterCategory(v as TaskCategory | 'all')} />
             <FilterSelect label="Priority" value={filterPriority} options={priorities} onChange={(v) => setFilterPriority(v as TaskPriority | 'all')} />
-            <FilterSelect label="Status" value={filterStatus} options={['Completed', 'Pending']} onChange={(v) => setFilterStatus(v.toLowerCase() as 'all' | 'completed' | 'pending')} />
+            <FilterSelect label="Status" value={filterStatus} options={['Completed', 'Pending', 'Overdue']} onChange={(v) => setFilterStatus(v.toLowerCase() as StatusFilter)} />
             {allTags.length > 0 && (
               <FilterSelect label="Tag" value={filterTag} options={allTags} onChange={(v) => setFilterTag(v)} />
             )}

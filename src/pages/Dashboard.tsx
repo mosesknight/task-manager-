@@ -7,6 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { DashboardStats, Task } from '@/types';
 import { CheckSquare, Clock, ListTodo, ArrowRight, AlertTriangle, CalendarDays } from 'lucide-react';
+
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -31,12 +37,12 @@ export default function Dashboard() {
       }
 
       const tasks = Array.isArray(data) ? data : [];
+      const today = todayKey();
       const total = tasks.length;
       const completed = tasks.filter((t) => t.completed).length;
       const pending = total - completed;
-      const now = new Date().toISOString();
       const overdue = tasks.filter(
-        (t) => !t.completed && t.due_date && t.due_date < now
+        (t) => !t.completed && t.due_date && t.due_date.slice(0, 10) < today
       ).length;
 
       setStats({ total, completed, pending });
@@ -53,34 +59,44 @@ export default function Dashboard() {
     value,
     icon: Icon,
     colorClass,
+    to,
+    filterStatus,
   }: {
     title: string;
     value: number;
     icon: React.ElementType;
     colorClass: string;
+    to: string;
+    filterStatus: string;
   }) => (
-    <Card className="h-full">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <div className={`flex h-8 w-8 items-center justify-center rounded-md ${colorClass}`}>
-          <Icon className="h-4 w-4" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-8 w-16" />
-        ) : (
-          <p className="text-2xl font-bold">{value}</p>
-        )}
-      </CardContent>
-    </Card>
+    <Link
+      to={to}
+      state={{ filterStatus }}
+      className="block h-full group outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
+    >
+      <Card className="h-full transition-all group-hover:shadow-md group-hover:border-primary/40 cursor-pointer">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {title}
+          </CardTitle>
+          <div className={`flex h-8 w-8 items-center justify-center rounded-md ${colorClass}`}>
+            <Icon className="h-4 w-4" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <Skeleton className="h-8 w-16" />
+          ) : (
+            <p className="text-2xl font-bold">{value}</p>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
   );
 
-  const isOverdue = (task: Task) => {
+  const isTaskOverdue = (task: Task) => {
     if (!task.due_date || task.completed) return false;
-    return new Date(task.due_date) < new Date();
+    return task.due_date.slice(0, 10) < todayKey();
   };
 
   const priorityBadgeClass: Record<string, string> = {
@@ -104,24 +120,32 @@ export default function Dashboard() {
           value={stats?.total ?? 0}
           icon={ListTodo}
           colorClass="bg-primary/10 text-primary"
+          to="/tasks"
+          filterStatus="all"
         />
         <StatCard
           title="Completed"
           value={stats?.completed ?? 0}
           icon={CheckSquare}
           colorClass="bg-[hsl(var(--status-success))]/10 text-[hsl(var(--status-success))]"
+          to="/tasks"
+          filterStatus="completed"
         />
         <StatCard
           title="Pending"
           value={stats?.pending ?? 0}
           icon={Clock}
           colorClass="bg-[hsl(var(--status-warning))]/10 text-[hsl(var(--status-warning))]"
+          to="/tasks"
+          filterStatus="pending"
         />
         <StatCard
           title="Overdue"
           value={overdueCount}
           icon={AlertTriangle}
           colorClass="bg-[hsl(var(--status-error))]/10 text-[hsl(var(--status-error))]"
+          to="/tasks"
+          filterStatus="overdue"
         />
       </div>
 
@@ -182,9 +206,9 @@ export default function Dashboard() {
                           {task.priority}
                         </span>
                         {task.due_date && (
-                          <span className={`flex items-center gap-1 text-xs ${isOverdue(task) ? 'overdue-indicator font-medium' : 'text-muted-foreground'}`}>
+                          <span className={`flex items-center gap-1 text-xs ${isTaskOverdue(task) ? 'overdue-indicator font-medium' : 'text-muted-foreground'}`}>
                             <CalendarDays className="h-3 w-3" />
-                            {new Date(task.due_date).toLocaleDateString()}
+                            {new Date(task.due_date + 'T12:00:00').toLocaleDateString()}
                           </span>
                         )}
                       </div>

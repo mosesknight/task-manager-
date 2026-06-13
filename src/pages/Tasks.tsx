@@ -52,9 +52,15 @@ const priorityOrder: Record<TaskPriority, number> = { High: 0, Medium: 1, Low: 2
 type SortField = 'created_at' | 'due_date' | 'priority' | 'title';
 type SortDir = 'asc' | 'desc';
 
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function isOverdue(dueDate: string | null, completed: boolean): boolean {
   if (!dueDate || completed) return false;
-  return new Date(dueDate) < new Date();
+  // Compare date strings directly to avoid UTC timezone shift
+  return dueDate.slice(0, 10) < todayKey();
 }
 
 export default function Tasks() {
@@ -202,7 +208,7 @@ export default function Tasks() {
       description: description.trim() || null,
       category,
       priority,
-      due_date: dueDate ? dueDate.toISOString() : null,
+      due_date: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
       tags: [...new Set(tags)],
     };
 
@@ -362,7 +368,7 @@ export default function Tasks() {
                         {task.due_date && (
                           <span className={`flex items-center gap-1 ${overdue ? 'overdue-indicator font-medium' : ''}`}>
                             <CalendarDays className="h-3.5 w-3.5" />
-                            Due {new Date(task.due_date).toLocaleDateString()}{overdue && ' (Overdue)'}
+                            Due {new Date(task.due_date + 'T12:00:00').toLocaleDateString()}{overdue && ' (Overdue)'}
                           </span>
                         )}
                       </div>

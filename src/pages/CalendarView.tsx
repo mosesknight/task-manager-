@@ -29,9 +29,15 @@ function toDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function todayKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function isOverdue(dueDate: string | null, completed: boolean): boolean {
   if (!dueDate || completed) return false;
-  return new Date(dueDate) < new Date();
+  // Compare date strings directly to avoid UTC timezone shift
+  return dueDate < todayKey();
 }
 
 function isToday(date: Date): boolean {
@@ -78,7 +84,8 @@ export default function CalendarView() {
     const map = new Map<string, Task[]>();
     for (const task of tasks) {
       if (!task.due_date) continue;
-      const key = toDateKey(new Date(task.due_date));
+      // due_date is stored as "yyyy-MM-dd" — use directly as key to avoid UTC shift
+      const key = task.due_date.slice(0, 10);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(task);
     }
@@ -371,7 +378,7 @@ export default function CalendarView() {
                 <div className={`flex items-center gap-2 text-sm ${isOverdue(selectedTask.due_date, selectedTask.completed) ? 'overdue-indicator' : 'text-muted-foreground'}`}>
                   <CalendarDays className="h-4 w-4 shrink-0" />
                   <span>
-                    Due {new Date(selectedTask.due_date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    Due {new Date(selectedTask.due_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     {isOverdue(selectedTask.due_date, selectedTask.completed) && ' (Overdue)'}
                   </span>
                 </div>

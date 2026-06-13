@@ -192,7 +192,7 @@ export default function Tasks() {
     setDescription(task.description || '');
     setCategory(task.category);
     setPriority(task.priority);
-    setDueDate(task.due_date ? new Date(task.due_date) : undefined);
+    setDueDate(task.due_date ? new Date(task.due_date + 'T12:00:00') : undefined);
     setTags(task.tags || []);
     setDialogOpen(true);
   };
